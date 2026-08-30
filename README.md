@@ -40,10 +40,44 @@ sudo ufw allow 40000:40100/udp
 #     --source-address-prefixes <softswitch-ip-or-cidr> --destination-port-ranges 40000-40100
 #   (AWS: Security Group inbound UDP rules; GCP: `gcloud compute firewall-rules create`.)
 
-# 4. Run (behind NAT/cloud, set the reachable PUBLIC IP first)
-export SIP_MEDIA_ADVERTISE_IP=<public-or-reachable-IP>   # skip if directly addressed
-sudo -E venv/bin/python sip_blocklist_responder_earlymedia.py &   # sudo: binds UDP 5060
-venv/bin/python blacklist_sync.py &                               # pulls the blocklist
+# 4. Install as systemd services (auto-start on boot, restart on crash)
+PUB=<public-or-reachable-IP>          # or: PUB=$(curl -s ifconfig.me); leave blank if directly addressed
+
+sudo tee /etc/systemd/system/sip-responder.service >/dev/null <<EOF
+[Unit]
+Description=SIP Blocklist Responder
+After=network.target
+[Service]
+User=$(id -un)
+WorkingDirectory=/opt/sip-blocklist
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+Environment=SIP_MEDIA_ADVERTISE_IP=$PUB
+ExecStart=/opt/sip-blocklist/venv/bin/python /opt/sip-blocklist/sip_blocklist_responder_earlymedia.py
+Restart=always
+RestartSec=2
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo tee /etc/systemd/system/blacklist-sync.service >/dev/null <<EOF
+[Unit]
+Description=Blacklist Sync Client
+After=network-online.target sip-responder.service
+Wants=network-online.target
+[Service]
+User=$(id -un)
+WorkingDirectory=/opt/sip-blocklist
+EnvironmentFile=/opt/sip-blocklist/sync.env
+ExecStart=/opt/sip-blocklist/venv/bin/python /opt/sip-blocklist/blacklist_sync.py
+Restart=always
+RestartSec=30
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now sip-responder blacklist-sync
+sudo systemctl status sip-responder blacklist-sync --no-pager
 ```
 
 **Is it running?** (expect `SIP/2.0 200 OK`)
@@ -65,7 +99,9 @@ python3 -c "import socket;s=socket.create_connection(('127.0.0.1',5099));s.senda
 python3 loadtest.py --calls 1          # expect: 1/1, final '486 Busy Here', ~264 RTP pkts
 ```
 
-For production, run both under systemd instead of `&` — see [SETUP.md](SETUP.md).
+Manage it: `sudo systemctl status|restart sip-responder`, `journalctl -u sip-responder -f`.
+See [SETUP.md](SETUP.md) for the full reference — dedicated service user, restricting
+the firewall to the softswitch IP, changing the block code, and troubleshooting.
 
 ## Components
 
