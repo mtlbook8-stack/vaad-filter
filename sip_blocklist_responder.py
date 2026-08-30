@@ -20,7 +20,6 @@ as final vs. retriable, not the SIP spec alone.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
 import uuid
@@ -28,6 +27,8 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Optional
+
+from blocklist import Blocklist  # shared JSON-backed store (also used by the sync)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -125,60 +126,8 @@ class DialedNumberExtractor:
         return re.sub(r"\D", "", match.group(1))  # digits only
 
 
-def normalize_number(raw: str) -> str:
-    """Canonicalise a phone number so the same subscriber matches regardless of
-    format. Digits only; for NANP (+1) numbers a leading country-code '1' is
-    dropped, so 11-digit (1XXXXXXXXXX) and 10-digit (XXXXXXXXXX) forms -- and
-    the API's E.164 '+1XXXXXXXXXX' -- all compare equal. Non-NANP numbers are
-    left as their digit string.  KEEP THIS IDENTICAL in the early-media edition.
-    """
-    digits = re.sub(r"\D", "", raw or "")
-    if len(digits) == 11 and digits.startswith("1"):
-        digits = digits[1:]
-    return digits
-
-
-# --------------------------------------------------------------------------
-# Blocklist storage
-# --------------------------------------------------------------------------
-
-class Blocklist:
-    """Simple JSON-file-backed set of blocked numbers, editable at runtime."""
-
-    def __init__(self, path: Path):
-        self._path = path
-        self._numbers: set[str] = set()
-        self.reload()
-
-    def reload(self) -> None:
-        if self._path.exists():
-            self._numbers = {normalize_number(n) for n in json.loads(self._path.read_text())}
-        else:
-            self._numbers = set()
-        log.info("Loaded %d blocked numbers from %s", len(self._numbers), self._path)
-
-    def save(self) -> None:
-        self._path.write_text(json.dumps(sorted(self._numbers), indent=2))
-
-    def is_blocked(self, number: str) -> bool:
-        return normalize_number(number) in self._numbers
-
-    def add(self, number: str) -> None:
-        self._numbers.add(normalize_number(number))
-        self.save()
-
-    def remove(self, number: str) -> None:
-        self._numbers.discard(normalize_number(number))
-        self.save()
-
-    def apply_updates(self, active: list[str], inactive: list[str]) -> None:
-        """Bulk add/remove, saving once. Used by the sync client so a large
-        pull is a single disk write instead of one per number."""
-        for n in active:
-            self._numbers.add(normalize_number(n))
-        for n in inactive:
-            self._numbers.discard(normalize_number(n))
-        self.save()
+# Blocklist + normalize_number live in blocklist.py (imported at the top),
+# shared by both responders and the sync client.
 
 
 # --------------------------------------------------------------------------

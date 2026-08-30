@@ -13,6 +13,7 @@ Runs on any Linux server with Python 3.10+. No database, no framework.
 ## Components
 
 - `sip_blocklist_responder_earlymedia.py` — the server (announcement + reject)
-- `sip_blocklist_responder.py` — text-only variant + shared `Blocklist` class
+- `sip_blocklist_responder.py` — text-only variant (reject, no audio)
+- `blocklist.py` — shared blocklist store + number normalization
 - `blacklist_sync.py` — scheduled blocklist sync from the partner API
 - `loadtest.py` — concurrency/soak test for the block path

@@ -42,6 +42,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from blocklist import Blocklist  # shared JSON-backed store (also used by the sync)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -178,19 +180,6 @@ class DialedNumberExtractor:
         return re.sub(r"\D", "", match.group(1))
 
 
-def normalize_number(raw: str) -> str:
-    """Canonicalise a phone number so the same subscriber matches regardless of
-    format. Digits only; for NANP (+1) numbers a leading country-code '1' is
-    dropped, so 11-digit (1XXXXXXXXXX) and 10-digit (XXXXXXXXXX) forms -- and
-    the API's E.164 '+1XXXXXXXXXX' -- all compare equal. Non-NANP numbers are
-    left as their digit string.  KEEP THIS IDENTICAL in sip_blocklist_responder.py.
-    """
-    digits = re.sub(r"\D", "", raw or "")
-    if len(digits) == 11 and digits.startswith("1"):
-        digits = digits[1:]
-    return digits
-
-
 class SdpParser:
     """Pulls the caller's RTP address + port out of the INVITE's SDP body."""
 
@@ -214,28 +203,6 @@ class SdpParser:
         except Exception:
             log.exception("Failed to parse SDP from INVITE")
         return None
-
-
-# --------------------------------------------------------------------------
-# Blocklist (kept in sync with the sync client via the control socket)
-# --------------------------------------------------------------------------
-
-class Blocklist:
-    def __init__(self, path: Path):
-        self._path = path
-        self._numbers: set[str] = set()
-        self.reload()
-
-    def reload(self) -> None:
-        import json
-        if self._path.exists():
-            self._numbers = {normalize_number(n) for n in json.loads(self._path.read_text())}
-        else:
-            self._numbers = set()
-        log.info("Loaded %d blocked numbers from %s", len(self._numbers), self._path)
-
-    def is_blocked(self, number: str) -> bool:
-        return normalize_number(number) in self._numbers
 
 
 class Decision(Enum):

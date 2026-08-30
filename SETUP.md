@@ -13,10 +13,14 @@ Runs on any Linux server with Python 3.10+. No database, no framework.
 | File | Purpose |
 |------|---------|
 | `sip_blocklist_responder_earlymedia.py` | **The server you run.** Plays a recorded announcement to blocked callers, then rejects. |
-| `sip_blocklist_responder.py` | Text-only variant (rejects with no audio). Also provides the shared `Blocklist` class the sync imports — **keep it present even if you run the early-media edition.** |
+| `sip_blocklist_responder.py` | Text-only variant (rejects with no audio) — an alternative to the early-media server. |
+| `blocklist.py` | Shared store: the `Blocklist` class + number normalization, used by both responders **and** the sync. |
 | `blacklist_sync.py` | Pulls the blocklist from the partner API on a schedule and updates `blocklist.json`. |
 | `loadtest.py` | Concurrency/soak test that drives real calls through the block path. |
 | `SETUP.md` | This file. |
+
+Keep `blocklist.py` alongside whichever responder you run — both the responder
+and the sync import the `Blocklist` class from it.
 
 You provide at runtime (not in the repo): `announcement.ulaw`, `blocklist.json`
 (auto-created by the sync), `sync.env` (your secrets), and a Python venv.

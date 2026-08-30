@@ -34,13 +34,7 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 
-# GOTCHA: the sync always imports the read/write Blocklist from the TEXT-ONLY
-# responder module, even when you run the early-media edition. Both editions
-# share the same blocklist.json file on disk; the early-media responder has its
-# own read-only Blocklist and reloads the file when we poke its control socket.
-# So sip_blocklist_responder.py must be present alongside whichever responder
-# you actually run.
-from sip_blocklist_responder import Blocklist  # read/write blocklist store
+from blocklist import Blocklist  # shared JSON-backed store (see blocklist.py)
 
 log = logging.getLogger("blacklist-sync")
 
