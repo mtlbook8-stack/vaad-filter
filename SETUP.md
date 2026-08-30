@@ -115,11 +115,15 @@ Raw values only — no quotes (a systemd `EnvironmentFile` treats quotes as lite
 characters).
 
 ### Announcement audio
-The server streams raw **8 kHz mono G.711 µ-law (PCMU)**. Convert any clip:
+The server streams raw **8 kHz mono G.711 µ-law (PCMU)** as `announcement.ulaw`.
+This repo ships with the announcement clip **`VAAD-FILTER-BLC-MSG.mp3`** — convert
+it (or any replacement clip) to the required format:
 ```bash
-ffmpeg -i message.mp3 -ar 8000 -ac 1 -f mulaw /opt/sip-blocklist/announcement.ulaw
+ffmpeg -i VAAD-FILTER-BLC-MSG.mp3 -ar 8000 -ac 1 -f mulaw /opt/sip-blocklist/announcement.ulaw
 ```
-If the file is missing, blocked callers simply get the reject with no audio.
+`announcement.ulaw` itself is generated (and git-ignored), so you always produce
+it from the source clip. If the file is missing, blocked callers simply get the
+reject with no audio.
 
 ### Media / SIP settings
 - `SIP_MEDIA_ADVERTISE_IP` — export this (or set it in the systemd unit) to the
