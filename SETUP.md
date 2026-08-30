@@ -254,15 +254,33 @@ the final code — plus an aggregate pass count.
 
 ## 8. Firewall
 
-Open, restricted to the softswitch's signalling/media IPs (not the whole
-internet — SIP scanners hammer 5060):
+**Allow SIP + RTP only from the softswitch's IPs — never the whole internet**
+(SIP scanners hammer 5060 continuously). Set `SOFTSWITCH_IP` to the softswitch's
+SIP signalling address (a `/32`) or its subnet (a CIDR):
 
-- **UDP 5060** — SIP signalling
-- **UDP 40000-40100** — RTP media (the announcement)
-- **TCP 22** — SSH, restricted to admin IPs
+```bash
+SOFTSWITCH_IP=<softswitch signalling IP or CIDR>
+sudo ufw allow from "$SOFTSWITCH_IP" to any port 5060 proto udp         # SIP
+sudo ufw allow from "$SOFTSWITCH_IP" to any port 40000:40100 proto udp  # RTP media
+sudo ufw allow from <admin-IP> to any port 22 proto tcp                 # SSH
+```
 
-The OS firewall is the gate; nothing about the responder blocks UDP itself.
-Keep the control port **5099 bound to loopback only** (it is by default).
+| Port | Proto | Allow from | For |
+|---|---|---|---|
+| 5060 | UDP | softswitch IP(s) | SIP signalling (INVITE / OPTIONS) |
+| 40000-40100 | UDP | softswitch IP(s) | RTP media (the announcement) |
+| 22 | TCP | admin IP(s) | SSH |
+| 5099 | TCP | **loopback only** | control socket — never expose |
+
+On a **cloud VM** there are two firewalls — this OS one *and* the provider's
+security group (Azure NSG / AWS SG / GCP firewall). Open the same ports, from the
+same softswitch source, in **both**.
+
+On the softswitch side, register this server as a vendor/trunk at
+**`<this server's public IP> : 5060 / UDP`**.
+
+The OS firewall is the only gate for UDP — nothing in the responder blocks it.
+Keep the control port **5099 on `127.0.0.1`** (it is by default).
 
 ---
 

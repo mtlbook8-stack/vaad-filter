@@ -24,21 +24,28 @@ ffmpeg -i VAAD-FILTER-BLC-MSG.mp3 -ar 8000 -ac 1 -f mulaw announcement.ulaw
 printf 'VH_API_TOKEN=%s\nVH_SHARED_KEY_HEX=%s\n' 'YOUR_TOKEN' 'YOUR_KEY' > sync.env
 chmod 600 sync.env
 
-# 3. Open UDP 5060 (SIP) + 40000-40100 (RTP) in the OS firewall
-#    (restrict --from to the softswitch's IP in production)
-sudo ufw allow 5060/udp
-sudo ufw allow 40000:40100/udp
+# 3. Firewall -- allow SIP + RTP ONLY from the softswitch (Telinta / PortaBilling).
+#    SOFTSWITCH_IP = its SIP signalling IP (a single /32, or their subnet as a CIDR).
+#    NEVER open 5060 to the whole internet -- SIP scanners hammer it constantly.
+SOFTSWITCH_IP=<telinta/porta signalling IP or CIDR>
+sudo ufw allow from "$SOFTSWITCH_IP" to any port 5060 proto udp         # SIP signalling
+sudo ufw allow from "$SOFTSWITCH_IP" to any port 40000:40100 proto udp  # RTP media
 
-# 3b. CLOUD VM: also open those UDP ports in the provider's firewall, and note
-#     the PUBLIC IP (needed for SIP_MEDIA_ADVERTISE_IP below). Azure example:
-#   PUB=$(curl -s ifconfig.me)          # this VM's public IP
+# 3b. CLOUD VM: there's a SECOND firewall in front of the VM (provider security
+#     group). Open the SAME two UDP ports from the SAME source there too, or
+#     traffic never reaches the OS. Grab the PUBLIC IP for step 4 while here.
+#   PUB=$(curl -s ifconfig.me)
+#   Azure (Network Security Group):
 #   az network nsg rule create -g <RG> --nsg-name <NSG> -n allow-sip-udp \
 #     --priority 310 --direction Inbound --access Allow --protocol Udp \
-#     --source-address-prefixes <softswitch-ip-or-cidr> --destination-port-ranges 5060
+#     --source-address-prefixes "$SOFTSWITCH_IP" --destination-port-ranges 5060
 #   az network nsg rule create -g <RG> --nsg-name <NSG> -n allow-rtp-udp \
 #     --priority 320 --direction Inbound --access Allow --protocol Udp \
-#     --source-address-prefixes <softswitch-ip-or-cidr> --destination-port-ranges 40000-40100
+#     --source-address-prefixes "$SOFTSWITCH_IP" --destination-port-ranges 40000-40100
 #   (AWS: Security Group inbound UDP rules; GCP: `gcloud compute firewall-rules create`.)
+#
+#   THEN, on the softswitch side, register THIS server as a vendor/trunk at:
+#       <this server's PUBLIC IP> : 5060 / UDP
 
 # 4. Install as systemd services (auto-start on boot, restart on crash)
 PUB=<public-or-reachable-IP>          # or: PUB=$(curl -s ifconfig.me); leave blank if directly addressed
