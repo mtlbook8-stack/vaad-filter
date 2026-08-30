@@ -24,7 +24,23 @@ ffmpeg -i VAAD-FILTER-BLC-MSG.mp3 -ar 8000 -ac 1 -f mulaw announcement.ulaw
 printf 'VH_API_TOKEN=%s\nVH_SHARED_KEY_HEX=%s\n' 'YOUR_TOKEN' 'YOUR_KEY' > sync.env
 chmod 600 sync.env
 
-# 3. Run (behind NAT/cloud, set the reachable IP first)
+# 3. Open UDP 5060 (SIP) + 40000-40100 (RTP) in the OS firewall
+#    (restrict --from to the softswitch's IP in production)
+sudo ufw allow 5060/udp
+sudo ufw allow 40000:40100/udp
+
+# 3b. CLOUD VM: also open those UDP ports in the provider's firewall, and note
+#     the PUBLIC IP (needed for SIP_MEDIA_ADVERTISE_IP below). Azure example:
+#   PUB=$(curl -s ifconfig.me)          # this VM's public IP
+#   az network nsg rule create -g <RG> --nsg-name <NSG> -n allow-sip-udp \
+#     --priority 310 --direction Inbound --access Allow --protocol Udp \
+#     --source-address-prefixes <softswitch-ip-or-cidr> --destination-port-ranges 5060
+#   az network nsg rule create -g <RG> --nsg-name <NSG> -n allow-rtp-udp \
+#     --priority 320 --direction Inbound --access Allow --protocol Udp \
+#     --source-address-prefixes <softswitch-ip-or-cidr> --destination-port-ranges 40000-40100
+#   (AWS: Security Group inbound UDP rules; GCP: `gcloud compute firewall-rules create`.)
+
+# 4. Run (behind NAT/cloud, set the reachable PUBLIC IP first)
 export SIP_MEDIA_ADVERTISE_IP=<public-or-reachable-IP>   # skip if directly addressed
 sudo -E venv/bin/python sip_blocklist_responder_earlymedia.py &   # sudo: binds UDP 5060
 venv/bin/python blacklist_sync.py &                               # pulls the blocklist
