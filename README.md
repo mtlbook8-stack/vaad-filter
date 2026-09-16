@@ -40,8 +40,16 @@ Runs on any Linux server with Python 3.10+. No database, no framework.
 
 ```bash
 # 1. Get it + deps
-sudo apt update && sudo apt install -y python3 python3-venv ffmpeg
-git clone https://github.com/mtlbook8-stack/vaad-filter.git /opt/sip-blocklist
+sudo apt update && sudo apt install -y python3 python3-venv ffmpeg git
+sudo mkdir -p /opt/sip-blocklist
+
+# ⚠️ This repo is PRIVATE -- a plain `git clone` will FAIL on a fresh box (no auth)
+#    and silently leave nothing installed. Use ONE of:
+#   a) token clone:  git clone https://<GH_TOKEN>@github.com/mtlbook8-stack/vaad-filter.git /opt/sip-blocklist
+#   b) gh auth:      gh auth login   # then: git clone https://github.com/mtlbook8-stack/vaad-filter.git /opt/sip-blocklist
+#   c) copy the files from a machine that already has them (no GitHub needed):
+#        scp *.py *.mp3 root@<this-server>:/opt/sip-blocklist/
+
 cd /opt/sip-blocklist
 python3 -m venv venv && venv/bin/pip install requests pycryptodome
 
