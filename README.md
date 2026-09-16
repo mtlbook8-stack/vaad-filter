@@ -10,6 +10,32 @@ Runs on any Linux server with Python 3.10+. No database, no framework.
 
 **Full install, systemd units, firewall, and operations: [SETUP.md](SETUP.md).**
 
+## Server requirements
+
+**OS**
+- Ubuntu 22.04 LTS or 24.04 LTS (64-bit / x86_64)
+
+**Compute**
+- CPU: 2 vCPU (non-burstable preferred — real-time RTP audio)
+- RAM: 2 GB
+- Disk: 16 GB SSD
+
+**Software**
+- Python 3.10+
+- ffmpeg (one-time, for the announcement)
+
+**Network**
+- 1× static **public IP** (reachable by the softswitch; register the server as a vendor at `<public-IP>:5060/UDP`)
+- Inbound **UDP 5060** (SIP) — allow only from the softswitch IP/range
+- Inbound **UDP 40000–40100** (RTP media) — allow only from the softswitch IP/range
+- Inbound **TCP 22** (SSH) — allow only from admin IP(s)
+- Open the ports in **both** the OS firewall and any cloud/provider firewall
+
+**Access**
+- root/sudo, SSH key auth
+
+> Sized from measured production use (~35 MB RAM for the app, ~30 MB on disk, ~3,400 calls/day). Absolute minimums are 1 vCPU / 1 GB / 8 GB; the above adds headroom for stable media and logs.
+
 ## Quick start (impatient edition)
 
 ```bash
